@@ -1,2 +1,3 @@
-# satisfactory-planner
-Satisfactory Factory Planner Web App
+# Satisfactory Factory Planner
+
+Dark theme web app foundation.
