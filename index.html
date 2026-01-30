@@ -10,15 +10,22 @@ header { padding:1rem; background:#020617; font-size:1.25rem; font-weight:bold; 
 table { width:100%; border-collapse:collapse; margin-top:1rem; }
 th, td { padding:0.75rem; border-bottom:1px solid #1e293b; }
 th { color:#94a3b8; }
-select, input { background:#020617; color:#e5e7eb; border:1px solid #1e293b; border-radius:6px; padding:0.4rem; width:100%; }
+select, input {
+  background:#020617; color:#e5e7eb;
+  border:1px solid #1e293b; border-radius:6px;
+  padding:0.4rem; width:100%;
+}
 .status-good { color:#22c55e; }
 .status-warn { color:#eab308; }
 .status-bad { color:#ef4444; }
 .status-wait { color:#64748b; }
+.note { font-size:0.75rem; color:#eab308; }
 </style>
 </head>
 <body>
+
 <header>🏭 Satisfactory Factory Planner</header>
+
 <main style="padding:1rem;">
 <table>
 <thead>
@@ -38,10 +45,51 @@ select, input { background:#020617; color:#e5e7eb; border:1px solid #1e293b; bor
 </main>
 
 <script>
+/* =====================
+   DATA (v1.4a starter)
+   ===================== */
+
+const belts = [
+  { name:"Mk1", max:60 },
+  { name:"Mk2", max:120 },
+  { name:"Mk3", max:270 },
+  { name:"Mk4", max:480 },
+  { name:"Mk5", max:780 }
+];
+
 const recipes = {
-  "Heavy Modular Frame": { rate: 0.5, power: 55, belt: "Mk5" },
-  "Modular Frame": { rate: 2, power: 15, belt: "Mk3" }
+  "Iron Plate": [
+    { name:"Default", rate:20, machine:"Constructor", power:4 },
+    { name:"Coated Iron Plate (Alt)", rate:37.5, machine:"Assembler", power:15 }
+  ],
+  "Iron Rod": [
+    { name:"Default", rate:15, machine:"Constructor", power:4 },
+    { name:"Steel Rod (Alt)", rate:48, machine:"Assembler", power:15 }
+  ],
+  "Screw": [
+    { name:"Default", rate:40, machine:"Constructor", power:4 },
+    { name:"Cast Screw (Alt)", rate:200, machine:"Constructor", power:4 }
+  ],
+  "Reinforced Iron Plate": [
+    { name:"Default", rate:5, machine:"Assembler", power:15 },
+    { name:"Bolted Iron Plate (Alt)", rate:15, machine:"Assembler", power:15 }
+  ],
+  "Modular Frame": [
+    { name:"Default", rate:2, machine:"Assembler", power:15 }
+  ]
 };
+
+/* =====================
+   HELPERS
+   ===================== */
+
+function bestRecipe(list) {
+  return list.reduce((a,b)=>b.rate>a.rate?b:a);
+}
+
+function beltFor(rate) {
+  return belts.find(b=>rate<=b.max) || belts[belts.length-1];
+}
 
 function efficiencyLabel(e) {
   if (e >= 95) return ["Excellent","status-good"];
@@ -49,43 +97,77 @@ function efficiencyLabel(e) {
   return ["Bottleneck","status-bad"];
 }
 
+/* =====================
+   PLANNER LOGIC
+   ===================== */
+
 function addRow() {
   const tr = document.createElement("tr");
 
   tr.innerHTML = `
-  <td>
-    <select class="item">
-      <option value="">Select item</option>
-      ${Object.keys(recipes).map(i=>`<option>${i}</option>`).join("")}
-    </select>
-  </td>
-  <td><span class="recipe">Best</span></td>
-  <td><input type="number" min="0"></td>
-  <td class="machines">—</td>
-  <td class="power">—</td>
-  <td class="belt">—</td>
-  <td class="eff">—</td>
-  <td class="status status-wait">Waiting</td>
-  `;
+<td>
+  <select class="item">
+    <option value="">Select item</option>
+    ${Object.keys(recipes).map(i=>`<option>${i}</option>`).join("")}
+  </select>
+</td>
+<td>
+  <select class="recipe"></select>
+  <div class="note"></div>
+</td>
+<td><input type="number" min="0"></td>
+<td class="machines">—</td>
+<td class="power">—</td>
+<td class="belt">—</td>
+<td class="eff">—</td>
+<td class="status status-wait">Waiting</td>
+`;
 
   const itemSel = tr.querySelector(".item");
+  const recipeSel = tr.querySelector(".recipe");
+  const note = tr.querySelector(".note");
   const input = tr.querySelector("input");
+
+  function populateRecipes() {
+    recipeSel.innerHTML = "";
+    note.textContent = "";
+    if (!itemSel.value) return;
+
+    const list = recipes[itemSel.value];
+    const best = bestRecipe(list);
+
+    list.forEach(r=>{
+      const opt = document.createElement("option");
+      opt.textContent = r.name;
+      recipeSel.appendChild(opt);
+    });
+
+    recipeSel.value = list[0].name;
+
+    if (list[0] !== best) {
+      note.textContent = "Alt recipe available (better efficiency)";
+    }
+  }
 
   function recalc() {
     const item = itemSel.value;
     const target = Number(input.value);
     if (!item || !target) return;
 
-    const r = recipes[item];
-    const machines = Math.ceil(target / r.rate);
-    const power = machines * r.power;
-    const eff = Math.min(100, Math.round((target / (machines * r.rate)) * 100));
+    const recipe = recipes[item].find(r=>r.name===recipeSel.value);
+    const machines = Math.ceil(target / recipe.rate);
+    const totalRate = machines * recipe.rate;
+    const power = machines * recipe.power;
+    const eff = Math.round((target / totalRate) * 100);
+
+    const belt = beltFor(totalRate);
     const [label, cls] = efficiencyLabel(eff);
 
     tr.querySelector(".machines").textContent = machines;
     tr.querySelector(".power").textContent = power;
-    tr.querySelector(".belt").textContent = r.belt;
+    tr.querySelector(".belt").textContent = belt.name;
     tr.querySelector(".eff").textContent = eff + "% – " + label;
+
     const status = tr.querySelector(".status");
     status.textContent = label;
     status.className = "status " + cls;
@@ -93,7 +175,8 @@ function addRow() {
     if (tr.nextSibling === null) addRow();
   }
 
-  itemSel.addEventListener("change", recalc);
+  itemSel.addEventListener("change", ()=>{ populateRecipes(); recalc(); });
+  recipeSel.addEventListener("change", recalc);
   input.addEventListener("input", recalc);
 
   document.getElementById("planner").appendChild(tr);
