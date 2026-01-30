@@ -5,21 +5,87 @@
   <title>Satisfactory Factory Planner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { margin:0; font-family:Arial,sans-serif; background:#0f172a; color:#e5e7eb; }
-    header { padding:1rem; background:#020617; font-size:1.25rem; font-weight:bold; }
-    main { padding:1rem; }
-    .card { background:#020617; padding:1rem; border-radius:8px; }
-    button { background:#2563eb; border:none; color:white; padding:0.5rem 1rem; border-radius:6px; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    header {
+      padding: 1rem;
+      background: #020617;
+      font-size: 1.25rem;
+      font-weight: bold;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #1e293b;
+      text-align: left;
+    }
+    th {
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+    select, input {
+      background: #020617;
+      color: #e5e7eb;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 0.4rem;
+      width: 100%;
+    }
+    .status-good { color: #22c55e; }
+    .status-warn { color: #eab308; }
+    .status-bad { color: #ef4444; }
+    .placeholder { color: #64748b; }
   </style>
 </head>
 <body>
   <header>🏭 Satisfactory Factory Planner</header>
-  <main>
-    <div class="card">
-      <h2>Factory Planner (v1)</h2>
-      <p>Your planner foundation is live.</p>
-      <button>Add Production Line</button>
-    </div>
+  <main style="padding:1rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Recipe</th>
+          <th>Target / min</th>
+          <th>Machines</th>
+          <th>Power (MW)</th>
+          <th>Belt</th>
+          <th>Efficiency</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="planner-body">
+        <tr>
+          <td>
+            <select>
+              <option value="">Select item</option>
+              <option>Heavy Modular Frame</option>
+              <option>Modular Frame</option>
+            </select>
+          </td>
+          <td>
+            <select>
+              <option value="">Best recipe</option>
+            </select>
+          </td>
+          <td>
+            <input type="number" placeholder="0" />
+          </td>
+          <td class="placeholder">—</td>
+          <td class="placeholder">—</td>
+          <td class="placeholder">—</td>
+          <td class="placeholder">—</td>
+          <td class="placeholder">⚪ Waiting for input</td>
+        </tr>
+      </tbody>
+    </table>
   </main>
 </body>
 </html>
