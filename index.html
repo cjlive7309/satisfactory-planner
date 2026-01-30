@@ -129,25 +129,28 @@ function addRow() {
   const input = tr.querySelector("input");
 
   function populateRecipes() {
-    recipeSel.innerHTML = "";
-    note.textContent = "";
-    if (!itemSel.value) return;
+  recipeSel.innerHTML = "";
+  note.textContent = "";
+  if (!itemSel.value) return;
 
-    const list = recipes[itemSel.value];
-    const best = bestRecipe(list);
+  const list = recipes[itemSel.value];
+  const best = bestRecipe(list);
 
-    list.forEach(r=>{
-      const opt = document.createElement("option");
-      opt.textContent = r.name;
-      recipeSel.appendChild(opt);
-    });
+  list.forEach(r=>{
+    const opt = document.createElement("option");
+    opt.textContent = r.name;
+    recipeSel.appendChild(opt);
+  });
 
-    recipeSel.value = list[0].name;
+  // Default to first recipe
+  recipeSel.value = list[0].name;
 
-    if (list[0] !== best) {
-      note.textContent = "Alt recipe available (better efficiency)";
-    }
+  // Show alt suggestion ONLY if current recipe is NOT the best
+  if (recipeSel.value !== best.name) {
+    note.textContent = "Alt recipe available (better efficiency)";
   }
+}
+
 
   function recalc() {
     const item = itemSel.value;
