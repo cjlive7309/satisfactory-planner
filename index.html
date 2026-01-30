@@ -5,209 +5,258 @@
 <title>Satisfactory Factory Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body { margin:0; font-family:Arial,sans-serif; background:#0f172a; color:#e5e7eb; }
-header { padding:1rem; background:#020617; font-size:1.25rem; font-weight:bold; }
-table { width:100%; border-collapse:collapse; margin-top:1rem; }
-th, td { padding:0.75rem; border-bottom:1px solid #1e293b; }
-th { color:#94a3b8; }
-select, input {
-  background:#020617; color:#e5e7eb;
-  border:1px solid #1e293b; border-radius:6px;
-  padding:0.4rem; width:100%;
+:root {
+  --bg:#0f172a; --panel:#020617; --line:#1e293b;
+  --text:#e5e7eb; --muted:#94a3b8;
+  --good:#22c55e; --warn:#eab308; --bad:#ef4444;
 }
-.status-good { color:#22c55e; }
-.status-warn { color:#eab308; }
-.status-bad { color:#ef4444; }
+body { margin:0; font-family:Arial,sans-serif; background:var(--bg); color:var(--text); }
+header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:1rem; background:var(--panel); font-size:1.25rem; font-weight:bold;
+}
+button, select, input {
+  background:var(--panel); color:var(--text);
+  border:1px solid var(--line); border-radius:6px;
+  padding:0.4rem;
+}
+table { width:100%; border-collapse:collapse; margin-top:1rem; }
+th, td { padding:0.75rem; border-bottom:1px solid var(--line); }
+th { color:var(--muted); text-align:left; }
+.status-good { color:var(--good); }
+.status-warn { color:var(--warn); }
+.status-bad { color:var(--bad); }
 .status-wait { color:#64748b; }
-.note { font-size:0.75rem; color:#eab308; }
+.note { font-size:0.75rem; color:var(--warn); }
+.tabs { display:flex; gap:0.5rem; margin-top:0.5rem; }
+.tab { cursor:pointer; padding:0.4rem 0.75rem; border-radius:6px; }
+.tab.active { background:#1e293b; }
+.hidden { display:none; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:1rem; margin-top:1rem; }
 </style>
 </head>
 <body>
 
-<header>🏭 Satisfactory Factory Planner</header>
+<header>
+  <div>🏭 Satisfactory Factory Planner</div>
+  <label>
+    🧪 Labs
+    <input id="labsToggle" type="checkbox">
+  </label>
+</header>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="planner">Planner</div>
+  <div class="tab hidden" data-tab="optimizer">🧪 Optimizer</div>
+  <div class="tab hidden" data-tab="flow">🧪 Flow Map</div>
+  <div class="tab hidden" data-tab="dashboard">🧪 Dashboard</div>
+</div>
 
 <main style="padding:1rem;">
+
+<!-- ================= PLANNER ================= -->
+<section id="planner">
 <table>
 <thead>
 <tr>
-<th>Item</th>
-<th>Recipe</th>
-<th>Target / min</th>
-<th>Machines</th>
-<th>Power (MW)</th>
-<th>Belt</th>
-<th>Efficiency</th>
-<th>Status</th>
+<th>Item</th><th>Recipe</th><th>Target/min</th>
+<th>Machines</th><th>Power (MW)</th><th>Belt</th>
+<th>Efficiency</th><th>Status</th>
 </tr>
 </thead>
-<tbody id="planner"></tbody>
+<tbody id="plannerBody"></tbody>
 </table>
+</section>
+
+<!-- ================= OPTIMIZER ================= -->
+<section id="optimizer" class="hidden">
+<div class="card">
+  <h3>Recipe Optimizer (Beta)</h3>
+  <select id="optItem"></select>
+  <table>
+    <thead><tr><th>Recipe</th><th>Rate</th><th>Machines</th><th>Power</th><th>Efficiency</th></tr></thead>
+    <tbody id="optBody"></tbody>
+  </table>
+</div>
+</section>
+
+<!-- ================= FLOW ================= -->
+<section id="flow" class="hidden">
+<div class="card">
+  <h3>Flow Map (Beta)</h3>
+  <p>Auto-generated from planner rows (visual refinement coming).</p>
+  <ul id="flowList"></ul>
+</div>
+</section>
+
+<!-- ================= DASHBOARD ================= -->
+<section id="dashboard" class="hidden">
+<div class="card">
+  <h3>Dashboard (Beta)</h3>
+  <p>Total Power: <span id="dashPower">0</span> MW</p>
+  <p>Total Machines: <span id="dashMachines">0</span></p>
+</div>
+</section>
+
 </main>
 
 <script>
-/* =====================
-   BELTS
-   ===================== */
+/* ================= DATA ================= */
 const belts = [
-  { name:"Mk1", max:60 },
-  { name:"Mk2", max:120 },
-  { name:"Mk3", max:270 },
-  { name:"Mk4", max:480 },
-  { name:"Mk5", max:780 }
+  {name:"Mk1",max:60},{name:"Mk2",max:120},{name:"Mk3",max:270},
+  {name:"Mk4",max:480},{name:"Mk5",max:780}
 ];
 
-/* =====================
-   RECIPES (v1.4b)
-   ===================== */
 const recipes = {
-  "Iron Plate": [
-    { name:"Default", rate:20, machine:"Constructor", power:4 },
-    { name:"Coated Iron Plate (Alt)", rate:37.5, machine:"Assembler", power:15 }
+  "Iron Plate":[
+    {name:"Default",rate:20,power:4},
+    {name:"Coated Iron Plate (Alt)",rate:37.5,power:15}
   ],
-  "Iron Rod": [
-    { name:"Default", rate:15, machine:"Constructor", power:4 },
-    { name:"Steel Rod (Alt)", rate:48, machine:"Assembler", power:15 }
+  "Iron Rod":[
+    {name:"Default",rate:15,power:4},
+    {name:"Steel Rod (Alt)",rate:48,power:15}
   ],
-  "Screw": [
-    { name:"Default", rate:40, machine:"Constructor", power:4 },
-    { name:"Cast Screw (Alt)", rate:200, machine:"Constructor", power:4 }
+  "Screw":[
+    {name:"Default",rate:40,power:4},
+    {name:"Cast Screw (Alt)",rate:200,power:4}
   ],
-  "Reinforced Iron Plate": [
-    { name:"Default", rate:5, machine:"Assembler", power:15 },
-    { name:"Bolted Iron Plate (Alt)", rate:15, machine:"Assembler", power:15 }
+  "Reinforced Iron Plate":[
+    {name:"Default",rate:5,power:15},
+    {name:"Bolted Iron Plate (Alt)",rate:15,power:15}
   ],
-  "Modular Frame": [
-    { name:"Default", rate:2, machine:"Assembler", power:15 }
+  "Modular Frame":[{name:"Default",rate:2,power:15}],
+  "Encased Industrial Beam":[{name:"Default",rate:6,power:15}],
+  "Rotor":[{name:"Default",rate:4,power:15}],
+  "Stator":[{name:"Default",rate:5,power:15}],
+  "Motor":[{name:"Default",rate:2,power:15}],
+  "Heavy Modular Frame":[
+    {name:"Default",rate:0.5,power:55},
+    {name:"Encased Frame (Alt)",rate:1,power:55}
   ],
-  "Encased Industrial Beam": [
-    { name:"Default", rate:6, machine:"Assembler", power:15 }
-  ],
-  "Rotor": [
-    { name:"Default", rate:4, machine:"Assembler", power:15 }
-  ],
-  "Stator": [
-    { name:"Default", rate:5, machine:"Assembler", power:15 }
-  ],
-  "Motor": [
-    { name:"Default", rate:2, machine:"Assembler", power:15 }
-  ],
-  "Heavy Modular Frame": [
-    { name:"Default", rate:0.5, machine:"Manufacturer", power:55 },
-    { name:"Encased Frame (Alt)", rate:1, machine:"Manufacturer", power:55 }
-  ],
-  "Computer": [
-    { name:"Default", rate:2.5, machine:"Manufacturer", power:55 }
-  ]
+  "Computer":[{name:"Default",rate:2.5,power:55}]
 };
 
-/* =====================
-   HELPERS
-   ===================== */
-function bestRecipe(list) {
-  return list.reduce((a,b)=>b.rate>a.rate?b:a);
-}
+/* ================= HELPERS ================= */
+const bestRecipe = list => list.reduce((a,b)=>b.rate>a.rate?b:a);
+const beltFor = r => belts.find(b=>r<=b.max) || belts.at(-1);
+const effLabel = e => e>=95?["Excellent","status-good"]:e>=80?["OK","status-warn"]:["Bottleneck","status-bad"];
 
-function beltFor(rate) {
-  return belts.find(b=>rate<=b.max) || belts[belts.length-1];
-}
+/* ================= PLANNER ================= */
+const plannerBody = document.getElementById("plannerBody");
 
-function efficiencyLabel(e) {
-  if (e >= 95) return ["Excellent","status-good"];
-  if (e >= 80) return ["OK","status-warn"];
-  return ["Bottleneck","status-bad"];
-}
-
-/* =====================
-   PLANNER
-   ===================== */
-function addRow() {
-  const tr = document.createElement("tr");
-
-  tr.innerHTML = `
-<td>
-  <select class="item">
-    <option value="">Select item</option>
-    ${Object.keys(recipes).map(i=>`<option>${i}</option>`).join("")}
-  </select>
-</td>
-<td>
-  <select class="recipe"></select>
-  <div class="note"></div>
-</td>
+function addRow(){
+  const tr=document.createElement("tr");
+  tr.innerHTML=`
+<td><select class="item"><option value="">Select</option>${Object.keys(recipes).map(i=>`<option>${i}</option>`).join("")}</select></td>
+<td><select class="recipe"></select><div class="note"></div></td>
 <td><input type="number" min="0"></td>
-<td class="machines">—</td>
-<td class="power">—</td>
-<td class="belt">—</td>
-<td class="eff">—</td>
-<td class="status status-wait">Waiting</td>
-`;
+<td class="m">—</td><td class="p">—</td><td class="b">—</td>
+<td class="e">—</td><td class="s status-wait">Waiting</td>`;
+  const item=tr.querySelector(".item");
+  const recipeSel=tr.querySelector(".recipe");
+  const note=tr.querySelector(".note");
+  const input=tr.querySelector("input");
 
-  const itemSel = tr.querySelector(".item");
-  const recipeSel = tr.querySelector(".recipe");
-  const note = tr.querySelector(".note");
-  const input = tr.querySelector("input");
-
-  function populateRecipes() {
-    recipeSel.innerHTML = "";
-    note.textContent = "";
-    if (!itemSel.value) return;
-
-    const list = recipes[itemSel.value];
-    const best = bestRecipe(list);
-
+  function populate(){
+    recipeSel.innerHTML=""; note.textContent="";
+    if(!item.value) return;
+    const list=recipes[item.value];
+    const best=bestRecipe(list);
     list.forEach(r=>{
-      const opt = document.createElement("option");
-      opt.textContent = r.name;
-      recipeSel.appendChild(opt);
+      const o=document.createElement("option"); o.textContent=r.name; recipeSel.appendChild(o);
     });
+    recipeSel.value=list[0].name;
+    if(recipeSel.value!==best.name) note.textContent="Alt recipe available (better efficiency)";
+  }
 
-    recipeSel.value = list[0].name;
+  function recalc(){
+    if(!item.value||!input.value) return;
+    const list=recipes[item.value];
+    const r=list.find(x=>x.name===recipeSel.value);
+    const best=bestRecipe(list);
+    note.textContent = r.name===best.name ? "" : "Alt recipe available (better efficiency)";
+    const machines=Math.ceil(input.value/r.rate);
+    const totalRate=machines*r.rate;
+    const power=machines*r.power;
+    const eff=Math.round((input.value/totalRate)*100);
+    const belt=beltFor(totalRate);
+    const [label,cls]=effLabel(eff);
+    tr.querySelector(".m").textContent=machines;
+    tr.querySelector(".p").textContent=power;
+    tr.querySelector(".b").textContent=belt.name;
+    tr.querySelector(".e").textContent=`${eff}% – ${label}`;
+    const s=tr.querySelector(".s"); s.textContent=label; s.className=`s ${cls}`;
+    if(!tr.nextSibling) addRow();
+    updateDashboard();
+    updateFlow();
+  }
 
-    if (recipeSel.value !== best.name) {
-      note.textContent = "Alt recipe available (better efficiency)";
+  item.onchange=()=>{populate();recalc();};
+  recipeSel.onchange=recalc;
+  input.oninput=recalc;
+  plannerBody.appendChild(tr);
+}
+addRow();
+
+/* ================= OPTIMIZER ================= */
+const optItem=document.getElementById("optItem");
+const optBody=document.getElementById("optBody");
+Object.keys(recipes).forEach(i=>{
+  const o=document.createElement("option"); o.textContent=i; optItem.appendChild(o);
+});
+optItem.onchange=()=>{
+  optBody.innerHTML="";
+  const list=recipes[optItem.value];
+  const best=bestRecipe(list);
+  list.forEach(r=>{
+    const tr=document.createElement("tr");
+    const eff=100;
+    tr.innerHTML=`<td>${r.name}${r===best?" ⭐":""}</td><td>${r.rate}</td><td>—</td><td>${r.power}</td><td>${eff}%</td>`;
+    optBody.appendChild(tr);
+  });
+};
+
+/* ================= FLOW ================= */
+function updateFlow(){
+  const ul=document.getElementById("flowList");
+  ul.innerHTML="";
+  [...plannerBody.children].forEach(r=>{
+    const item=r.querySelector(".item").value;
+    const rate=r.querySelector("input").value;
+    if(item&&rate){
+      const li=document.createElement("li");
+      li.textContent=`${item}: ${rate}/min`;
+      ul.appendChild(li);
     }
-  }
-
-  function recalc() {
-    const item = itemSel.value;
-    const target = Number(input.value);
-    if (!item || !target) return;
-
-    const list = recipes[item];
-    const recipe = list.find(r=>r.name===recipeSel.value);
-    const best = bestRecipe(list);
-
-    note.textContent =
-      recipe.name === best.name ? "" : "Alt recipe available (better efficiency)";
-
-    const machines = Math.ceil(target / recipe.rate);
-    const totalRate = machines * recipe.rate;
-    const power = machines * recipe.power;
-    const eff = Math.round((target / totalRate) * 100);
-
-    const belt = beltFor(totalRate);
-    const [label, cls] = efficiencyLabel(eff);
-
-    tr.querySelector(".machines").textContent = machines;
-    tr.querySelector(".power").textContent = power;
-    tr.querySelector(".belt").textContent = belt.name;
-    tr.querySelector(".eff").textContent = eff + "% – " + label;
-
-    const status = tr.querySelector(".status");
-    status.textContent = label;
-    status.className = "status " + cls;
-
-    if (tr.nextSibling === null) addRow();
-  }
-
-  itemSel.addEventListener("change", ()=>{ populateRecipes(); recalc(); });
-  recipeSel.addEventListener("change", recalc);
-  input.addEventListener("input", recalc);
-
-  document.getElementById("planner").appendChild(tr);
+  });
 }
 
-addRow();
+/* ================= DASHBOARD ================= */
+function updateDashboard(){
+  let power=0, machines=0;
+  [...plannerBody.children].forEach(r=>{
+    power+=Number(r.querySelector(".p").textContent)||0;
+    machines+=Number(r.querySelector(".m").textContent)||0;
+  });
+  document.getElementById("dashPower").textContent=power;
+  document.getElementById("dashMachines").textContent=machines;
+}
+
+/* ================= TABS + LABS ================= */
+document.querySelectorAll(".tab").forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));
+    document.getElementById(t.dataset.tab).classList.remove("hidden");
+  };
+});
+
+document.getElementById("labsToggle").onchange=e=>{
+  document.querySelectorAll("[data-tab]").forEach(t=>{
+    if(t.dataset.tab!=="planner") t.classList.toggle("hidden",!e.target.checked);
+  });
+};
 </script>
 </body>
 </html>
