@@ -1,91 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Satisfactory Factory Planner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-    }
-    header {
-      padding: 1rem;
-      background: #020617;
-      font-size: 1.25rem;
-      font-weight: bold;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-    th, td {
-      padding: 0.75rem;
-      border-bottom: 1px solid #1e293b;
-      text-align: left;
-    }
-    th {
-      color: #94a3b8;
-      font-size: 0.9rem;
-    }
-    select, input {
-      background: #020617;
-      color: #e5e7eb;
-      border: 1px solid #1e293b;
-      border-radius: 6px;
-      padding: 0.4rem;
-      width: 100%;
-    }
-    .status-good { color: #22c55e; }
-    .status-warn { color: #eab308; }
-    .status-bad { color: #ef4444; }
-    .placeholder { color: #64748b; }
-  </style>
+<meta charset="UTF-8">
+<title>Satisfactory Factory Planner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { margin:0; font-family:Arial,sans-serif; background:#0f172a; color:#e5e7eb; }
+header { padding:1rem; background:#020617; font-size:1.25rem; font-weight:bold; }
+table { width:100%; border-collapse:collapse; margin-top:1rem; }
+th, td { padding:0.75rem; border-bottom:1px solid #1e293b; }
+th { color:#94a3b8; }
+select, input { background:#020617; color:#e5e7eb; border:1px solid #1e293b; border-radius:6px; padding:0.4rem; width:100%; }
+.status-good { color:#22c55e; }
+.status-warn { color:#eab308; }
+.status-bad { color:#ef4444; }
+.status-wait { color:#64748b; }
+</style>
 </head>
 <body>
-  <header>🏭 Satisfactory Factory Planner</header>
-  <main style="padding:1rem;">
-    <table>
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Recipe</th>
-          <th>Target / min</th>
-          <th>Machines</th>
-          <th>Power (MW)</th>
-          <th>Belt</th>
-          <th>Efficiency</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="planner-body">
-        <tr>
-          <td>
-            <select>
-              <option value="">Select item</option>
-              <option>Heavy Modular Frame</option>
-              <option>Modular Frame</option>
-            </select>
-          </td>
-          <td>
-            <select>
-              <option value="">Best recipe</option>
-            </select>
-          </td>
-          <td>
-            <input type="number" placeholder="0" />
-          </td>
-          <td class="placeholder">—</td>
-          <td class="placeholder">—</td>
-          <td class="placeholder">—</td>
-          <td class="placeholder">—</td>
-          <td class="placeholder">⚪ Waiting for input</td>
-        </tr>
-      </tbody>
-    </table>
-  </main>
+<header>🏭 Satisfactory Factory Planner</header>
+<main style="padding:1rem;">
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Recipe</th>
+<th>Target / min</th>
+<th>Machines</th>
+<th>Power (MW)</th>
+<th>Belt</th>
+<th>Efficiency</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody id="planner"></tbody>
+</table>
+</main>
+
+<script>
+const recipes = {
+  "Heavy Modular Frame": { rate: 0.5, power: 55, belt: "Mk5" },
+  "Modular Frame": { rate: 2, power: 15, belt: "Mk3" }
+};
+
+function efficiencyLabel(e) {
+  if (e >= 95) return ["Excellent","status-good"];
+  if (e >= 80) return ["OK","status-warn"];
+  return ["Bottleneck","status-bad"];
+}
+
+function addRow() {
+  const tr = document.createElement("tr");
+
+  tr.innerHTML = `
+  <td>
+    <select class="item">
+      <option value="">Select item</option>
+      ${Object.keys(recipes).map(i=>`<option>${i}</option>`).join("")}
+    </select>
+  </td>
+  <td><span class="recipe">Best</span></td>
+  <td><input type="number" min="0"></td>
+  <td class="machines">—</td>
+  <td class="power">—</td>
+  <td class="belt">—</td>
+  <td class="eff">—</td>
+  <td class="status status-wait">Waiting</td>
+  `;
+
+  const itemSel = tr.querySelector(".item");
+  const input = tr.querySelector("input");
+
+  function recalc() {
+    const item = itemSel.value;
+    const target = Number(input.value);
+    if (!item || !target) return;
+
+    const r = recipes[item];
+    const machines = Math.ceil(target / r.rate);
+    const power = machines * r.power;
+    const eff = Math.min(100, Math.round((target / (machines * r.rate)) * 100));
+    const [label, cls] = efficiencyLabel(eff);
+
+    tr.querySelector(".machines").textContent = machines;
+    tr.querySelector(".power").textContent = power;
+    tr.querySelector(".belt").textContent = r.belt;
+    tr.querySelector(".eff").textContent = eff + "% – " + label;
+    const status = tr.querySelector(".status");
+    status.textContent = label;
+    status.className = "status " + cls;
+
+    if (tr.nextSibling === null) addRow();
+  }
+
+  itemSel.addEventListener("change", recalc);
+  input.addEventListener("input", recalc);
+
+  document.getElementById("planner").appendChild(tr);
+}
+
+addRow();
+</script>
 </body>
 </html>
